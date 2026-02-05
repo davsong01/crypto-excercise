@@ -30,29 +30,43 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
 
-    $exceptions->renderable(function (Throwable $e, $request) {
+        $exceptions->renderable(function (\Illuminate\Auth\Access\AuthorizationException $e, $request) {
+            return HttpResponseService::error(
+                'Unauthorized action',
+                [],
+                'general',
+                403
+            );
+        });
 
-        if ($e instanceof \Illuminate\Validation\ValidationException) {
+        $exceptions->renderable(function (AuthenticationException $e, $request) {
+            return HttpResponseService::error(
+                'Unauthenticated',
+                [],
+                'general',
+                401
+            );
+        });
+
+        $exceptions->renderable(function (\Illuminate\Validation\ValidationException $e, $request) {
             return null;
-        }
+        });
 
-        // Only handle server errors here
-        $randomErrorCode = 'C'.rand(111111111, 99999999);
-        logger()->error('Server Error', [
-            'Code'    => $randomErrorCode,
-            'Message' => $e->getMessage(),
-            'File'    => $e->getFile(),
-            'Line'    => $e->getLine(),
-            'Trace'   => $e->getTraceAsString(),
-        ]);
+        $exceptions->renderable(function (\Throwable $e, $request) {
+            $randomErrorCode = 'C'.rand(111111111, 99999999);
 
-        return HttpResponseService::error(
-            "An error {$randomErrorCode} occurred.",
-            [],
-            'fatal',
-            500
-        );
-    });
-})
+            logger()->error('Server Error', [
+                'Code'    => $randomErrorCode,
+                'Message' => $e->getMessage(),
+                'File'    => $e->getFile(),
+                'Line'    => $e->getLine(),
+                'Trace'   => $e->getTraceAsString(),
+                ]);
+
+                return HttpResponseService::fatalError(
+                    "An unexpected error occurred. Reference code: {$randomErrorCode}"
+                );
+        });
+    })
 
     ->create();

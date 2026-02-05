@@ -2,16 +2,17 @@
 
 namespace App\Http\Controllers\Auth;
 
-use App\Http\Controllers\Controller;
-use App\Http\Requests\Auth\RegisterRequest;
-use App\Http\Requests\Auth\LoginRequest;
+use Exception;
 use App\Models\User;
 use App\Models\Wallet;
-use App\Services\HttpResponseService;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Exception;
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use App\Services\HttpResponseService;
+use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\RegisterRequest;
 
 class AuthController extends Controller
 {
@@ -44,7 +45,7 @@ class AuthController extends Controller
 
         } catch (Exception $e) {
             DB::rollBack();
-            
+
             return HttpResponseService::fatalError(
                 'Registration failed',
                 ['exception' => $e->getMessage()]
@@ -78,5 +79,20 @@ class AuthController extends Controller
         auth()->user()->currentAccessToken()->delete();
 
         return HttpResponseService::success('Logged out successfully');
+    }
+
+    public function profile(Request $request)
+    {
+        $user = auth()->user();
+
+        return HttpResponseService::success('User profile fetched successfully', [
+            'user' => $user->only([
+                'id',
+                'name',
+                'email',
+                'created_at',
+                'updated_at',
+            ])
+        ]);
     }
 }
