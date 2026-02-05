@@ -11,5 +11,6 @@ class TradeCurrency extends Model
         'name',
         'fee',
         'fee_type',
+        'min_trade_amount'
     ];
 }

@@ -23,6 +23,7 @@ class TransactionResource extends JsonResource
             ] : null,
             'wallet_log' => in_array($this->type, ['deposit', 'withdraw'])
                             ?  [
+                                    'id'     => $this->walletLog->id,
                                     'user_id'     => $this->walletLog->user_id,
                                     'type'     => $this->walletLog->type,
                                     'amount'     => $this->walletLog->amount,

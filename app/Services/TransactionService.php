@@ -2,11 +2,14 @@
 
 namespace App\Services;
 
+use Exception;
 use App\Models\Transaction;
+use Illuminate\Support\Str;
+use App\DTOs\TransactionDto;
 use App\Models\TradeCurrency;
 use App\Services\WalletService;
-use Illuminate\Support\Str;
-use Exception;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class TransactionService
 {
@@ -15,6 +18,38 @@ class TransactionService
     public function __construct(WalletService $walletService)
     {
         $this->walletService = $walletService;
+    }
+
+    public function transactionHistory(array $filters = []): LengthAwarePaginator
+    {
+        $user = Auth::user();
+
+        $query = $user->transactions()->with('tradeCurrency');
+
+        if (!empty($filters['type'])) {
+            $query->where('type', $filters['type']);
+        }
+
+        if (!empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+
+        if (!empty($filters['from'])) {
+            $query->whereDate('created_at', '>=', $filters['from']);
+        }
+
+        if (!empty($filters['to'])) {
+            $query->whereDate('created_at', '<=', $filters['to']);
+        }
+
+        if (!empty($filters['currency_id'])) {
+            $query->where('trade_currency_id', $filters['currency_id']);
+        }
+
+        $perPage = $filters['per_page'] ?? 20;
+
+        return $query->orderBy('created_at', 'desc')
+                     ->paginate($perPage);
     }
 
     public function logTransaction(int $userId, string $type, float $amount, $status='initiated', ?string $currencyId = null): Transaction
