@@ -12,10 +12,11 @@ return new class extends Migration {
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->enum('type', ['deposit', 'withdraw', 'buy', 'sell']);
             $table->foreignId('trade_currency_id')->nullable()->constrained('trade_currencies')->onDelete('set null');
-            $table->decimal('amount', 20, 8);
-            $table->decimal('fee', 20, 8)->default(0);
-            $table->decimal('balance_after', 20, 8);
+            $table->decimal('amount', 14, 2);
+            $table->decimal('fee', 14, 2)->default(0);
+            $table->decimal('total_amount', 14, 2);
             $table->string('reference')->nullable();
+            $table->string('status')->default('initiated');
             $table->string('duplicate_check')->nullable()->unique();
             $table->timestamps();
         });

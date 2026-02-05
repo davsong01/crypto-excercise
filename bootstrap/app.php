@@ -53,6 +53,10 @@ return Application::configure(basePath: dirname(__DIR__))
         });
 
         $exceptions->renderable(function (\Throwable $e, $request) {
+            if(env('ENV') == 'testing'){
+                return $e;
+            }
+
             $randomErrorCode = 'C'.rand(111111111, 99999999);
 
             logger()->error('Server Error', [

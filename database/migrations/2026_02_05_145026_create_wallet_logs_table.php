@@ -9,12 +9,13 @@ return new class extends Migration {
     {
         Schema::create('wallet_logs', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('wallet_id')->constrained()->onDelete('cascade');
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->enum('type', ['credit', 'debit']);
-            $table->decimal('amount', 20, 8);
-            $table->decimal('balance_after', 20, 8);
+            $table->decimal('amount', 14, 2);
+            $table->decimal('initial_balance', 14, 2);
+            $table->decimal('final_balance', 14, 2);
             $table->string('reference')->nullable();
-            $table->string('description')->nullable();
+            $table->string('source')->nullable();
             $table->string('duplicate_check')->nullable()->unique();
             $table->timestamps();
         });

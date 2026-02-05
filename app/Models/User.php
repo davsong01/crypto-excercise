@@ -3,6 +3,8 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Models\Transaction;
+use App\Models\CryptoHolding;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -46,4 +48,19 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    public function wallet(){
+        return $this->hasOne(Wallet::class);
+    }
+
+    public function cryptoHoldings()
+    {
+        return $this->hasMany(CryptoHolding::class);
+    }
+
+    public function transactions()
+    {
+        return $this->hasMany(Transaction::class)->orderBy('created_at', 'desc');
+    }
+
 }

@@ -15,7 +15,7 @@ return new class extends Migration
             $table->string('name')->nullable();              // Bitcoin, Ethereum, Tether
             $table->decimal('fee', 10, 2)->default(0);       // transaction fee
             $table->enum('fee_type', ['fixed','percentage'])->default('percentage');
-            $table->decimal('min_trade_amount', 20, 8)->default(100); // minimum trade amount
+            $table->decimal('min_trade_amount', 14, 2)->default(100); // minimum trade amount
             $table->timestamps();
         });
 

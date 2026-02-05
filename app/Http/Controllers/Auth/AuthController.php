@@ -6,8 +6,10 @@ use Exception;
 use App\Models\User;
 use App\Models\Wallet;
 use Illuminate\Http\Request;
+use App\Services\WalletService;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
+use App\Services\TransactionService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use App\Services\HttpResponseService;
@@ -27,12 +29,14 @@ class AuthController extends Controller
                 'password' => Hash::make($request->password),
             ]);
 
-            // Create Naira wallet
-            Wallet::create([
-                'user_id' => $user->id,
-                'balance' => 0,
-                'currency' => 'NGN',
-            ]);
+            // We proceed to fund naira wallet with 2m, for testing purposes
+            $transactionService = app(TransactionService::class);
+            $transaction = $transactionService->logTransaction(
+                userId: $user->id,
+                type: 'deposit',
+                amount: 20000000,
+                status: 'completed'
+            );
 
             $token = $user->createToken('auth_token')->plainTextToken;
 
@@ -83,16 +87,26 @@ class AuthController extends Controller
 
     public function profile(Request $request)
     {
-        $user = auth()->user();
+        $user = auth()->user()->load('wallet:balance','cryptoHoldings.tradeCurrency');
 
         return HttpResponseService::success('User profile fetched successfully', [
-            'user' => $user->only([
-                'id',
-                'name',
-                'email',
-                'created_at',
-                'updated_at',
-            ])
+            'user' => [
+                'id'         => $user->id,
+                'name'       => $user->name,
+                'email'      => $user->email,
+                'created_at' => $user->created_at,
+                'updated_at' => $user->updated_at,
+                'wallet'     => [
+                    'balance' => $user->wallet?->balance ?? 0,
+                ],
+                'crypto_holdings' => $user->cryptoHoldings->map(function ($holding) {
+                    return [
+                        'currency' => $holding->tradeCurrency->symbol ?? null,
+                        'amount'   => $holding->amount,
+                        'value_in_naira' => $holding->value_in_naira ?? 0, // if you track this
+                    ];
+                }),
+            ],
         ]);
     }
 }

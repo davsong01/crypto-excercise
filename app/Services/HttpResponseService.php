@@ -37,6 +37,9 @@ class HttpResponseService
     public static function fatalError(string $message, $errors = [], int $statusCode = 500)
     {
         $randomErrorCode = 'C'.rand(111111111, 99999999);
+        if(env('ENV') == 'testing'){
+            return $errors;
+        }
 
         logger()->error('Server Error', [
             "Error {$randomErrorCode} occurred.",
