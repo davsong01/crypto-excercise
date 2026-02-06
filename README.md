@@ -6,7 +6,7 @@ A Laravel-based cryptocurrency trading platform with integrated wallet managemen
 1. **Clone the repository**:
 
 ```
-git clone <repo-url>
+git clone https://github.com/davsong01/crypto-excercise
 cd <repo-folder>
 ```
 
