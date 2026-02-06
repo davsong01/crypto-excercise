@@ -83,10 +83,8 @@ class TransactionController extends Controller{
             );
         }
 
-        // Convert crypto to Naira
         $nairaAmount = round($cryptoAmount * $nairaRate, 2);
 
-        // Fee in Naira
         $feeAmount = $this->transactionService->getFeeAmount($currency, $nairaAmount);
 
         // Wallet check
@@ -161,10 +159,12 @@ class TransactionController extends Controller{
         $userId = $user->id;
 
         $currency = TradeCurrency::findOrFail($request->currency_id);
-        $cryptoAmount = (float) $request->amount; // User enters amount of crypto to sell
+        $cryptoAmount = (float) $request->amount; // User enters crypto to sell
 
         // Get current rate (NGN per 1 crypto)
         $nairaRate = $this->tradeService->getNairaRate($currency);
+        $nairaAmount = round($cryptoAmount * $nairaRate, 2);
+        $feeAmount = $this->transactionService->getFeeAmount($currency, $nairaAmount);
 
         if (!$nairaRate) {
             return HttpResponseService::error(
@@ -175,30 +175,24 @@ class TransactionController extends Controller{
             );
         }
 
-        $nairaAmount = $cryptoAmount * $nairaRate;
-
+        // Validate min trade (crypto domain)
         if ($cryptoAmount < $currency->min_trade_amount) {
             return HttpResponseService::error(
                 'Transaction failed',
-                ['message' => "Minimum transaction amount for {$currency->name} is {$currency->min_trade_amount} {$currency->symbol}"],
+                [
+                    'message' => "Minimum transaction amount for {$currency->name} is {$currency->min_trade_amount} {$currency->symbol}"
+                ],
                 'general',
                 422
             );
         }
 
-
-        // Check user crypto holdings
         $holding = CryptoHolding::firstOrCreate(
-            [
-                'user_id' => $userId,
-                'trade_currency_id' => $currency->id,
-            ],
-            [
-                'balance' => 0
-            ]
+            ['user_id' => $userId, 'trade_currency_id' => $currency->id],
+            ['balance' => 0]
         );
 
-        if (!$holding || $holding->balance < $cryptoAmount) {
+        if ($holding->balance < $cryptoAmount) {
             return HttpResponseService::error(
                 'Transaction failed',
                 ['message' => 'Insufficient crypto balance to perform this sell.'],
@@ -206,9 +200,6 @@ class TransactionController extends Controller{
                 400
             );
         }
-
-        // Calculate fee in Naira
-        $feeAmount = $this->transactionService->getFeeAmount($currency, $nairaAmount);
 
         try {
             DB::beginTransaction();
@@ -228,7 +219,7 @@ class TransactionController extends Controller{
 
                 return HttpResponseService::success(
                     'Crypto sold successfully',
-                    $sellResponse['transaction']
+                    new TransactionResource($sellResponse['transaction'])
                 );
             } else {
                 DB::rollBack();
@@ -255,5 +246,4 @@ class TransactionController extends Controller{
             );
         }
     }
-
 }

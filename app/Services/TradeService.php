@@ -24,13 +24,14 @@ class TradeService
 
     public function buyCrypto(array $buyPayload): array
     {
-        $userId        = $buyPayload['user_id'];
-        $currency      = $buyPayload['currency'];
-        $nairaAmount   = $buyPayload['nairaAmount'];
-        $cryptoAmount  = $buyPayload['cryptoAmount'];
-        $feeAmount     = $buyPayload['feeAmount'];
-        $rate          = $buyPayload['conversionRate'];
+        $userId       = $buyPayload['user_id'];
+        $currency     = $buyPayload['currency'];
+        $nairaAmount  = $buyPayload['nairaAmount'];
+        $cryptoAmount = $buyPayload['cryptoAmount'];
+        $feeAmount    = $buyPayload['feeAmount'];
+        $rate         = $buyPayload['conversionRate'];
 
+        // Create transaction with 'initiated' status first
         $transaction = $this->transactionService->logTransaction(
             userId: $userId,
             type: 'buy',
@@ -42,25 +43,29 @@ class TradeService
             cryptoAmount: $cryptoAmount,
         );
 
-        // Since this is a test, we assume the integration went well, else return false to break out
-        if($transaction){
-            $holding = CryptoHolding::firstOrCreate(
-                ['user_id' => $userId, 'trade_currency_id' => $currency->id],
-                ['balance' => 0]
-            );
+        $holding = CryptoHolding::firstOrCreate(
+            ['user_id' => $userId, 'trade_currency_id' => $currency->id],
+            ['balance' => 0]
+        );
 
-            $holding->balance += $cryptoAmount;
-            $holding->save();
+        $holding->balance += $cryptoAmount;
+        $holding->save();
+
+        if($holding){
+            // Mark transaction as completed
+            $transaction->update(['status' => 'completed']);
+            
+            $this->transactionService->logTransactionWallet($transaction);
         }else{
             return [
                 'status' => false,
-                'message' => 'Failure message',
+                'message' => 'We could not complete the transaction',
             ];
         }
 
         return [
-            'status' => true,
-            'transaction'   => $transaction
+            'status'      => true,
+            'transaction' => $transaction,
         ];
     }
 
