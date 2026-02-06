@@ -17,6 +17,7 @@ class Transaction extends Model
         'total_amount',
         'reference',
         'duplicate_check',
+        'conversion_rate',
         'status',
     ];
 

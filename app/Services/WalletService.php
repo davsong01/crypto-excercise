@@ -43,7 +43,7 @@ class WalletService
         }
 
         $wallet->save();
-
+        
         return WalletLog::create([
             'user_id' => $userId,
             'reference' => $reference,

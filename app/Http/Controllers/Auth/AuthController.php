@@ -101,6 +101,8 @@ class AuthController extends Controller
                 ],
                 'crypto_holdings' => $user->cryptoHoldings->map(function ($holding) {
                     return [
+                        'id' => $holding->id,
+                        'currency_id' => $holding->tradeCurrency->id ?? null,
                         'currency' => $holding->tradeCurrency->symbol ?? null,
                         'balance'   => $holding->balance,
                     ];

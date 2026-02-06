@@ -16,6 +16,7 @@ class TransactionResource extends JsonResource
             'total_amount'=> $this->total_amount,
             'status'      => $this->status,
             'reference'   => $this->reference,
+            'conversion_rate'   => $this->conversion_rate,
             'currency'    => $this->tradeCurrency ? [
                 'id'     => $this->tradeCurrency->id,
                 'symbol' => $this->tradeCurrency->symbol,

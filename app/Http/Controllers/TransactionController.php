@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\CryptoHolding;
 use App\Models\TradeCurrency;
 use App\Services\TradeService;
 use App\Services\WalletService;
@@ -115,7 +116,7 @@ class TransactionController extends Controller{
                 'nairaAmount'    => $nairaAmount,
                 'feeAmount'      => $feeAmount,
             ]);
-            
+
             if($buyResponse['status'] && $buyResponse['transaction']){
                 $buyResponse['transaction']->update([
                     'status'=>'completed',
@@ -159,47 +160,105 @@ class TransactionController extends Controller{
 
     }
 
+    public function sell(TradeRequest $request)
+    {
+        $user = $request->user();
+        $userId = $user->id;
+
+        $currency = TradeCurrency::findOrFail($request->currency_id);
+        $cryptoAmount = (float) $request->amount; // User enters amount of crypto to sell
+
+        // Get current rate (NGN per 1 crypto)
+        $nairaRate = $this->tradeService->getNairaRate($currency);
+
+        if (!$nairaRate) {
+            return HttpResponseService::error(
+                'Transaction failed',
+                ['message' => 'Unable to fetch current exchange rate, please try again later.'],
+                'general',
+                422
+            );
+        }
+
+        $nairaAmount = $cryptoAmount * $nairaRate;
+
+        if ($cryptoAmount < $currency->min_trade_amount) {
+            return HttpResponseService::error(
+                'Transaction failed',
+                ['message' => "Minimum transaction amount for {$currency->name} is {$currency->min_trade_amount} {$currency->symbol}"],
+                'general',
+                422
+            );
+        }
 
 
-    /**
-     * Sell crypto
-     */
-    // public function sell(Request $request)
-    // {
-    //     $validator = Validator::make($request->all(), [
-    //         'currency_id' => 'required|exists:trade_currencies,id',
-    //         'amount'      => 'required|numeric|min:0.00000001',
-    //     ]);
+        // Check user crypto holdings
+        $holding = CryptoHolding::firstOrCreate(
+            [
+                'user_id' => $userId,
+                'trade_currency_id' => $currency->id,
+            ],
+            [
+                'balance' => 0
+            ]
+        );
 
-    //     if ($validator->fails()) {
-    //         return HttpResponseService::error('Invalid input', $validator->errors(), 422);
-    //     }
+        if (!$holding || $holding->balance < $cryptoAmount) {
+            return HttpResponseService::error(
+                'Transaction failed',
+                ['message' => 'Insufficient crypto balance to perform this sell.'],
+                'general',
+                400
+            );
+        }
 
-    //     $userId = $request->user()->id;
-    //     $currencyId = $request->currency_id;
-    //     $amount = (float) $request->amount;
+        // Calculate fee in Naira
+        $feeAmount = $this->transactionService->getFeeAmount($currency, $nairaAmount);
 
-    //     // Check user holdings
-    //     $holding = $request->user()->cryptoHoldings()->where('trade_currency_id', $currencyId)->first();
-    //     if (!$holding || $holding->balance < $amount) {
-    //         return HttpResponseService::error('Insufficient crypto balance', [], 400);
-    //     }
+        try {
+            DB::beginTransaction();
 
-    //     try {
-    //         $transaction = $this->transactionService->logTransaction(
-    //             userId: $userId,
-    //             type: 'sell',
-    //             amount: $amount,
-    //             currencyId: $currencyId,
-    //             status: 'completed'
-    //         );
+            $sellResponse = $this->tradeService->sellCrypto([
+                'user_id'       => $userId,
+                'currency'      => $currency,
+                'cryptoAmount'  => $cryptoAmount,
+                'nairaAmount'   => $nairaAmount,
+                'feeAmount'     => $feeAmount,
+                'conversionRate'=> $nairaRate,
+            ]);
 
-    //         return HttpResponseService::success('Crypto sold successfully', $transaction);
+            if ($sellResponse['status'] && $sellResponse['transaction']) {
+                $sellResponse['transaction']->update(['status' => 'completed']);
+                DB::commit();
 
-    //     } catch (\RuntimeException $e) {
-    //         return HttpResponseService::error('Transaction failed', ['message' => $e->getMessage()], 400);
-    //     } catch (\Exception $e) {
-    //         return HttpResponseService::fatalError('Unexpected error occurred', ['exception' => $e->getMessage()]);
-    //     }
-    // }
+                return HttpResponseService::success(
+                    'Crypto sold successfully',
+                    $sellResponse['transaction']
+                );
+            } else {
+                DB::rollBack();
+                return HttpResponseService::error(
+                    'Transaction failed',
+                    ['message' => $sellResponse['message'] ?? 'Something went wrong'],
+                    'general',
+                    400
+                );
+            }
+
+        } catch (\RuntimeException $e) {
+            DB::rollBack();
+            return HttpResponseService::fatalError(
+                'Unexpected error occurred',
+                ['exception' => $e->getMessage()]
+            );
+           
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return HttpResponseService::fatalError(
+                'Unexpected error occurred',
+                ['exception' => $e->getMessage()]
+            );
+        }
+    }
+
 }

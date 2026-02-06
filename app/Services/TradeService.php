@@ -43,12 +43,13 @@ class TradeService
 
         // Since this is a test, we assume the integration went well, else return false to break out
         if($transaction){
-            // Update crypto holdings
-            $this->updateHoldings(
-                userId: $userId,
-                currencyId: $currency->id,
-                cryptoAmount: $cryptoAmount
+            $holding = CryptoHolding::firstOrCreate(
+                ['user_id' => $userId, 'trade_currency_id' => $currency->id],
+                ['balance' => 0]
             );
+
+            $holding->balance += $cryptoAmount;
+            $holding->save();
         }else{
             return [
                 'status' => false,
@@ -63,59 +64,54 @@ class TradeService
     }
 
 
-
-    public function updateHoldings(int $userId, int $currencyId, float $cryptoAmount): CryptoHolding
+    public function sellCrypto(array $sellPayload): array
     {
-        $holding = CryptoHolding::firstOrCreate(
-            ['user_id' => $userId, 'trade_currency_id' => $currencyId],
-            ['balance' => 0]
-        );
+        $userId       = $sellPayload['user_id'];
+        $currency     = $sellPayload['currency'];
+        $cryptoAmount = $sellPayload['cryptoAmount'];
+        $nairaAmount  = $sellPayload['nairaAmount'];
+        $feeAmount    = $sellPayload['feeAmount'];
+        $rate         = $sellPayload['conversionRate'];
 
-        $holding->balance += $cryptoAmount;
-        $holding->save();
-
-        return $holding;
-    }
-
-    /**
-     * Sell crypto to receive Naira
-     */
-    public function sellCrypto(int $userId, string $symbol, float $cryptoAmount): CryptoHolding
-    {
-        $currency = TradeCurrency::where('symbol', $symbol)->firstOrFail();
-
-        $holding = CryptoHolding::where('user_id', $userId)
-            ->where('trade_currency_id', $currency->id)
-            ->firstOrFail();
-
-        if ($cryptoAmount > $holding->balance) {
-            throw new \RuntimeException('Insufficient crypto balance');
-        }
-
-        // Convert crypto to NGN
-        $nairaAmount = $this->convertCryptoToNaira($symbol, $cryptoAmount);
-
-        // Calculate fee
-        $fee = $currency->fee_type === 'percentage'
-            ? ($nairaAmount * $currency->fee / 100)
-            : $currency->fee;
-
-        $netNaira = $nairaAmount - $fee;
-
-        // Log sell transaction
-        $this->transactionService->logTransaction(
+        // Log transaction and credit wallet (Naira)
+        $transaction = $this->transactionService->logTransaction(
             userId: $userId,
             type: 'sell',
-            amount: $cryptoAmount,
-            status: 'completed',
-            currencyId: $currency->id
+            amount: $nairaAmount,
+            status: 'initiated',
+            currency: $currency,
+            conversion_rate: $rate,
+            feeAmount: $feeAmount
         );
 
-        // Deduct crypto from holding
-        $holding->balance -= $cryptoAmount;
-        $holding->save();
+        if ($transaction) {
+            // Subtract crypto from holding
+            $holding = CryptoHolding::where('user_id', $userId)
+                ->where('trade_currency_id', $currency->id)
+                ->firstOrFail();
 
-        return $holding;
+            $holding->balance -= $cryptoAmount;
+            $holding->save();
+
+            // Credit Naira wallet after fee
+            $this->walletService->walletLog(
+                $nairaAmount - $feeAmount,
+                $transaction->reference,
+                'credit',
+                $userId,
+                $transaction->duplicate_check
+            );
+        } else {
+            return [
+                'status' => false,
+                'message' => 'Failed to log sell transaction',
+            ];
+        }
+
+        return [
+            'status' => true,
+            'transaction' => $transaction
+        ];
     }
 
     public function getNairaRate($currency): ?float

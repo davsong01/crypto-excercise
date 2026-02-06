@@ -70,10 +70,11 @@ class TransactionService
             $totalAmount = $type === 'buy'
                 ? $amount + $feeAmount
                 : $amount - $feeAmount;
-            
+
             if ($type === 'buy') {
                 $this->walletService->walletLog($totalAmount, $reference, 'debit', $userId, $duplicateCheck);
             } else { // sell
+            
                 $this->walletService->walletLog($totalAmount, $reference, 'credit', $userId, $duplicateCheck);
             }
         } elseif ($type === 'deposit') {
