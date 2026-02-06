@@ -58,29 +58,28 @@ class TransactionService
         return $currency->fee_type === 'percentage' ? ($amount * $currency->fee / 100) : $currency->fee;
     }
 
-    public function logTransaction(int $userId, string $type, float $amount, $status='initiated', ?TradeCurrency $currency = null): Transaction
+    public function logTransaction(int $userId, string $type, float $amount, $status='initiated', ?TradeCurrency $currency = null, $conversion_rate=null, $feeAmount=0): Transaction
     {
         $reference = now()->format('YmdHis') . rand(1000, 9999);
-        $duplicateCheck = $userId . '|' . $type . '|' . $amount . '|' . ($currencyId ?? '') . '|' . $reference;
-
-        $feeAmount = 0;
         $totalAmount = $amount;
         $tradeCurrencyId = $currency->id ?? null;
 
-        if (in_array($type, ['buy', 'sell'])) {
-            $feeAmount = $this->getFeeAmount($currency, $amount);
-            $totalAmount = $type === 'buy' ? $amount + $feeAmount : $amount - $feeAmount;
-            $tradeCurrencyId = $currency->id;
+        $duplicateCheck = $userId . '|' . $type . '|' . $amount . '|' . ($tradeCurrencyId ?? '') . '|' . $reference;
 
+        if (in_array($type, ['buy', 'sell'])) {
+            $totalAmount = $type === 'buy'
+                ? $amount + $feeAmount
+                : $amount - $feeAmount;
+            
             if ($type === 'buy') {
                 $this->walletService->walletLog($totalAmount, $reference, 'debit', $userId, $duplicateCheck);
-            } else {
-                $this->walletService->walletLog($amount, $reference, 'credit', $userId, $duplicateCheck);
+            } else { // sell
+                $this->walletService->walletLog($totalAmount, $reference, 'credit', $userId, $duplicateCheck);
             }
         } elseif ($type === 'deposit') {
-            $this->walletService->walletLog($amount, $reference, 'credit', $userId, $duplicateCheck);
+            $this->walletService->walletLog($totalAmount, $reference, 'credit', $userId, $duplicateCheck);
         } elseif ($type === 'withdraw') {
-            $this->walletService->walletLog($amount, $reference, 'debit', $userId, $duplicateCheck);
+            $this->walletService->walletLog($totalAmount, $reference, 'debit', $userId, $duplicateCheck);
         } else {
             throw new \InvalidArgumentException('Invalid transaction type');
         }
@@ -93,6 +92,7 @@ class TransactionService
             'fee'               => $feeAmount,
             'total_amount'      => $totalAmount,
             'reference'         => $reference,
+            'conversion_rate'   => $conversion_rate,
             'status'            => $status,
             'duplicate_check'   => $duplicateCheck,
         ]);

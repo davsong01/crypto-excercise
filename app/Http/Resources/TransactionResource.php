@@ -21,16 +21,15 @@ class TransactionResource extends JsonResource
                 'symbol' => $this->tradeCurrency->symbol,
                 'name'   => $this->tradeCurrency->name,
             ] : null,
-            'wallet_log' => in_array($this->type, ['deposit', 'withdraw'])
-                            ?  [
-                                    'id'     => $this->walletLog->id,
-                                    'user_id'     => $this->walletLog->user_id,
-                                    'type'     => $this->walletLog->type,
-                                    'amount'     => $this->walletLog->amount,
-                                    'initial_balance'     => $this->walletLog->initial_balance,
-                                    'final_balance'     => $this->walletLog->final_balance,
-                                    'reference'     => $this->walletLog->reference,
-                                ] : null,
+            'wallet_log' => $this->walletLog ? [
+                                'id'     => $this->walletLog->id,
+                                'user_id'     => $this->walletLog->user_id,
+                                'type'     => $this->walletLog->type,
+                                'amount'     => $this->walletLog->amount,
+                                'initial_balance'     => $this->walletLog->initial_balance,
+                                'final_balance'     => $this->walletLog->final_balance,
+                                'reference'     => $this->walletLog->reference,
+                            ] : null,
             'created_at'  => $this->created_at->toDateTimeString(),
             'updated_at'  => $this->updated_at->toDateTimeString(),
 

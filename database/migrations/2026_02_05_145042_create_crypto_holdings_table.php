@@ -11,7 +11,7 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->foreignId('trade_currency_id')->constrained('trade_currencies')->onDelete('cascade');
-            $table->decimal('balance', 30, 2)->default(0);
+            $table->decimal('balance', 36, 18);
             $table->timestamps();
 
             $table->unique(['user_id', 'trade_currency_id']);

@@ -102,8 +102,7 @@ class AuthController extends Controller
                 'crypto_holdings' => $user->cryptoHoldings->map(function ($holding) {
                     return [
                         'currency' => $holding->tradeCurrency->symbol ?? null,
-                        'amount'   => $holding->amount,
-                        'value_in_naira' => $holding->value_in_naira ?? 0, // if you track this
+                        'balance'   => $holding->balance,
                     ];
                 }),
             ],

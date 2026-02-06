@@ -15,7 +15,7 @@ class TradeRequest extends FormRequest
     {
         return [
             'currency_id' => ['required', 'exists:trade_currencies,id'],
-            'amount'      => ['required', 'numeric', 'min:0.00000001'],
+            'amount'      => ['required', 'numeric'],
         ];
     }
 

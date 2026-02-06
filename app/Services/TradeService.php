@@ -2,11 +2,13 @@
 
 namespace App\Services;
 
-use CryptoHolding;
 use Illuminate\Support\Str;
+use App\Models\CryptoHolding;
 use App\Models\TradeCurrency;
 use App\Services\WalletService;
 use App\Services\TransactionService;
+use Illuminate\Support\Facades\Http;
+use App\Services\HttpResponseService;
 
 class TradeService
 {
@@ -19,41 +21,55 @@ class TradeService
         $this->transactionService = $transactionService;
     }
 
-    /**
-     * Buy crypto using Naira
-     */
-    public function buyCrypto(int $userId, string $symbol, float $amountNaira): CryptoHolding
+
+    public function buyCrypto(array $buyPayload): array
     {
-        $currency = TradeCurrency::where('symbol', $symbol)->firstOrFail();
+        $userId        = $buyPayload['user_id'];
+        $currency      = $buyPayload['currency'];
+        $nairaAmount   = $buyPayload['nairaAmount'];
+        $cryptoAmount  = $buyPayload['cryptoAmount'];
+        $feeAmount     = $buyPayload['feeAmount'];
+        $rate          = $buyPayload['conversionRate'];
 
-        if ($amountNaira < $currency->min_trade_amount) {
-            throw new \InvalidArgumentException("Minimum buy amount is {$currency->min_trade_amount} NGN");
-        }
-
-        // Calculate fee
-        $fee = $currency->fee_type === 'percentage'
-            ? ($amountNaira * $currency->fee / 100)
-            : $currency->fee;
-
-        $totalDebit = $amountNaira + $fee;
-
-        // Deduct Naira from wallet and log transaction
-        $this->transactionService->logTransaction(
+        $transaction = $this->transactionService->logTransaction(
             userId: $userId,
             type: 'buy',
-            amount: $amountNaira,
-            status: 'completed',
-            currencyId: $currency->id
+            amount: $nairaAmount,
+            status: 'initiated',
+            currency: $currency,
+            conversion_rate: $rate,
+            feeAmount: $feeAmount,
         );
 
-        // Convert NGN to crypto
-        $cryptoAmount = $this->convertNairaToCrypto($symbol, $amountNaira);
+        // Since this is a test, we assume the integration went well, else return false to break out
+        if($transaction){
+            // Update crypto holdings
+            $this->updateHoldings(
+                userId: $userId,
+                currencyId: $currency->id,
+                cryptoAmount: $cryptoAmount
+            );
+        }else{
+            return [
+                'status' => false,
+                'message' => 'Failure message',
+            ];
+        }
 
-        // Update or create crypto holding
-        $holding = CryptoHolding::firstOrNew([
-            'user_id' => $userId,
-            'trade_currency_id' => $currency->id,
-        ]);
+        return [
+            'status' => true,
+            'transaction'   => $transaction
+        ];
+    }
+
+
+
+    public function updateHoldings(int $userId, int $currencyId, float $cryptoAmount): CryptoHolding
+    {
+        $holding = CryptoHolding::firstOrCreate(
+            ['user_id' => $userId, 'trade_currency_id' => $currencyId],
+            ['balance' => 0]
+        );
 
         $holding->balance += $cryptoAmount;
         $holding->save();
@@ -102,35 +118,50 @@ class TradeService
         return $holding;
     }
 
-    /**
-     * Convert NGN to crypto using CoinGecko
-     */
-    protected function convertNairaToCrypto(string $symbol, float $nairaAmount): float
+    public function getNairaRate($currency): ?float
     {
-        $rate = $this->getCryptoRate($symbol); // NGN per crypto unit
-        return round($nairaAmount / $rate, 8);
+        try {
+            $symbol = $currency->symbol;
+            $symbolMap = [
+                'BTC'  => 'bitcoin',
+                'ETH'  => 'ethereum',
+                'USDT' => 'tether',
+            ];
+
+            if (!isset($symbolMap[$symbol])) {
+                return null;
+            }
+
+            $id = $symbolMap[$symbol];
+
+            $response = Http::timeout(5)->get("https://api.coingecko.com/api/v3/simple/price", [
+                'ids' => $id,
+                'vs_currencies' => 'ngn',
+            ]);
+
+            if (!$response->successful()) {
+                logger()->warning('CoinGecko API failed', [
+                    'status' => $response->status(),
+                    'body'   => $response->body()
+                ]);
+                return null;
+            }
+
+            $data = $response->json();
+
+            if (!is_array($data) || !isset($data[$id]['ngn'])) {
+                logger()->warning('Invalid CoinGecko response format', [
+                    'response' => $data
+                ]);
+                return null;
+            }
+
+            return $data[$id]['ngn'];
+
+        } catch (\Exception $e) {
+            logger()->error("Failed to fetch rate for {$symbol}: " . $e->getMessage());
+            return null;
+        }
     }
 
-    /**
-     * Convert crypto to NGN using CoinGecko
-     */
-    protected function convertCryptoToNaira(string $symbol, float $cryptoAmount): float
-    {
-        $rate = $this->getCryptoRate($symbol);
-        return round($cryptoAmount * $rate, 2);
-    }
-
-    /**
-     * Get crypto rate from CoinGecko (placeholder)
-     */
-    protected function getCryptoRate(string $symbol): float
-    {
-        // TODO: integrate CoinGecko API
-        return match ($symbol) {
-            'BTC' => 30_000_000,
-            'ETH' => 2_000_000,
-            'USDT' => 1000,
-            default => throw new \InvalidArgumentException('Unsupported currency')
-        };
-    }
 }

@@ -16,6 +16,7 @@ return new class extends Migration {
             $table->decimal('fee', 14, 2)->default(0);
             $table->decimal('total_amount', 14, 2);
             $table->string('reference')->nullable();
+            $table->string('conversion_rate')->nullable();
             $table->string('status')->default('initiated');
             $table->string('duplicate_check')->nullable()->unique();
             $table->timestamps();
