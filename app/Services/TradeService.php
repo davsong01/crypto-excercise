@@ -39,6 +39,7 @@ class TradeService
             currency: $currency,
             conversion_rate: $rate,
             feeAmount: $feeAmount,
+            cryptoAmount: $cryptoAmount,
         );
 
         // Since this is a test, we assume the integration went well, else return false to break out

@@ -51,7 +51,6 @@ class TransactionController extends Controller{
         return TransactionResource::collection($transactions);
     }
 
-
     public function buy(TradeRequest $request)
     {
         $user = $request->user();
@@ -59,7 +58,7 @@ class TransactionController extends Controller{
 
         $currency = TradeCurrency::findOrFail($request->currency_id);
 
-        $nairaAmount = (float) $request->amount;
+        $cryptoAmount = (float) $request->amount;
 
         // Get rate (NGN per 1 crypto)
         $nairaRate = $this->tradeService->getNairaRate($currency);
@@ -73,24 +72,21 @@ class TransactionController extends Controller{
             );
         }
 
-        // Convert to crypto
-        $cryptoAmount = $nairaAmount / $nairaRate;
-
-        // Validate min trade (crypto domain)
         if ($cryptoAmount < $currency->min_trade_amount) {
-            $minNaira = $currency->min_trade_amount * $nairaRate;
-
             return HttpResponseService::error(
                 'Transaction failed',
                 [
-                    'message' => "Minimum transaction amount for {$currency->name} is ₦" . number_format($minNaira, 2)
+                    'message' => "Minimum transaction amount for {$currency->name} is {$currency->min_trade_amount} {$currency->symbol}"
                 ],
                 'general',
                 422
             );
         }
 
-        // Fee in naira
+        // Convert crypto to Naira
+        $nairaAmount = round($cryptoAmount * $nairaRate, 2);
+
+        // Fee in Naira
         $feeAmount = $this->transactionService->getFeeAmount($currency, $nairaAmount);
 
         // Wallet check
@@ -126,10 +122,10 @@ class TransactionController extends Controller{
 
                 return HttpResponseService::success(
                     'Crypto purchased successfully',
-                    $buyResponse['transaction']
+                    new TransactionResource($buyResponse['transaction'])
                 );
+
             }else{
-                // Depending on the kind of error if this was production, we may update transaction status to pending and commit instead of rolling back
                 DB::rollBack();
 
                 return HttpResponseService::error(
@@ -157,7 +153,6 @@ class TransactionController extends Controller{
                 ['exception' => $e->getMessage()]
             );
         }
-
     }
 
     public function sell(TradeRequest $request)
@@ -251,7 +246,7 @@ class TransactionController extends Controller{
                 'Unexpected error occurred',
                 ['exception' => $e->getMessage()]
             );
-           
+
         } catch (\Exception $e) {
             DB::rollBack();
             return HttpResponseService::fatalError(

@@ -14,10 +14,13 @@ class Transaction extends Model
         'type',
         'amount',
         'fee',
+        'fee_rate',
+        'fee_rate_type',
         'total_amount',
         'reference',
         'duplicate_check',
         'conversion_rate',
+        'crypto_amount',
         'status',
     ];
 
@@ -25,6 +28,7 @@ class Transaction extends Model
         'amount'       => 'float',
         'fee'          => 'float',
         'total_amount' => 'float',
+        'crypto_amount' => 'float',
     ];
 
     public function user(): BelongsTo

@@ -9,14 +9,17 @@ class TransactionResource extends JsonResource
     public function toArray($request)
     {
         return [
-            'id'          => $this->id,
-            'type'        => $this->type,
-            'amount'      => $this->amount,
-            'fee'         => $this->fee,
+            'id'            => $this->id,
+            'type'          => $this->type,
+            'status'        => $this->status,
+            'amount'          => $this->amount,
+            'fee'           => $this->fee,
+            'fee_rate'          => (float) $this->fee_rate,
+            'fee_rate_type'         => $this->fee_rate_type,
+            'conversion_rate'   => (float) $this->conversion_rate,
             'total_amount'=> $this->total_amount,
-            'status'      => $this->status,
+            'crypto_amount' => number_format($this->crypto_amount, 8, '.', ''),
             'reference'   => $this->reference,
-            'conversion_rate'   => $this->conversion_rate,
             'currency'    => $this->tradeCurrency ? [
                 'id'     => $this->tradeCurrency->id,
                 'symbol' => $this->tradeCurrency->symbol,

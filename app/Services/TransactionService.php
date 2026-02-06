@@ -58,7 +58,7 @@ class TransactionService
         return $currency->fee_type === 'percentage' ? ($amount * $currency->fee / 100) : $currency->fee;
     }
 
-    public function logTransaction(int $userId, string $type, float $amount, $status='initiated', ?TradeCurrency $currency = null, $conversion_rate=null, $feeAmount=0): Transaction
+    public function logTransaction(int $userId, string $type, float $amount, $status='initiated', ?TradeCurrency $currency = null, $conversion_rate=null, $feeAmount=0, $cryptoAmount=0): Transaction
     {
         $reference = now()->format('YmdHis') . rand(1000, 9999);
         $totalAmount = $amount;
@@ -74,7 +74,7 @@ class TransactionService
             if ($type === 'buy') {
                 $this->walletService->walletLog($totalAmount, $reference, 'debit', $userId, $duplicateCheck);
             } else { // sell
-            
+
                 $this->walletService->walletLog($totalAmount, $reference, 'credit', $userId, $duplicateCheck);
             }
         } elseif ($type === 'deposit') {
@@ -90,12 +90,15 @@ class TransactionService
             'trade_currency_id' => $tradeCurrencyId,
             'type'              => $type,
             'amount'            => $amount,
-            'fee'               => $feeAmount,
+            'fee'               => $feeAmount ?? null,
+            'fee_rate'          => $currency->fee ?? null,
+            'fee_rate_type'     => $currency->fee_type ?? null,
             'total_amount'      => $totalAmount,
             'reference'         => $reference,
-            'conversion_rate'   => $conversion_rate,
+            'conversion_rate'   => $conversion_rate ?? null,
             'status'            => $status,
-            'duplicate_check'   => $duplicateCheck,
+            'crypto_amount'     => $cryptoAmount ?? null,
+            'duplicate_check'   => $duplicateCheck ?? null,
         ]);
     }
 }

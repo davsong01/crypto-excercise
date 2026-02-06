@@ -34,7 +34,7 @@ return new class extends Migration
                 'symbol' => 'ETH',
                 'name' => 'Ethereum',
                 'fee' => 1.2,
-                'fee_type' => 'percent',
+                'fee_type' => 'percentage',
                 'min_trade_amount' => 0.00000000001,
                 'created_at' => now(),
                 'updated_at' => now(),
