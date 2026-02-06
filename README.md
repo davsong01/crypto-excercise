@@ -36,11 +36,27 @@ php artisan migrate
 php artisan serve
 ```
 
-6. **Run tests (optional)**:
+6. **Run tests (optional)**
 
-```
+This project includes feature tests (uses `RefreshDatabase`) that cover authentication, buying/selling crypto, wallet updates, and transaction history. CoinGecko API calls are mocked in tests using `Http::fake()`.
+
+Examples:
+
+```bash
+# Run the full test suite
 php artisan test
+
+# Run only the auth & transaction feature tests
+php artisan test --filter=AuthAndTransactionTest
+
+# Run a single test method
+php artisan test --filter=AuthAndTransactionTest::user_can_register_successfully
 ```
+
+Notes:
+
+- If you rely on an in-memory SQLite database for tests, ensure `DB_CONNECTION=sqlite` and `DB_DATABASE=:memory:` are configured in `phpunit.xml` or your test environment.
+- Tests fake external HTTP calls (CoinGecko), so they do not require network access.
 
 ---
 

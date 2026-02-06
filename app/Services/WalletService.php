@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Wallet;
 use App\Models\WalletLog;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class WalletService
 {
@@ -34,16 +35,20 @@ class WalletService
             $wallet->balance = $finalBalance;
         } elseif ($type === 'debit') {
             if ($wallet->balance < $amount) {
-                throw new \RuntimeException('Insufficient balance');
+                throw ValidationException::withMessages([
+                    'amount' => ['Insufficient wallet balance.']
+                ]);
             }
             $finalBalance = $initialBalance - $amount;
             $wallet->balance = $finalBalance;
         } else {
-            throw new \InvalidArgumentException('Invalid wallet transaction type');
+            throw ValidationException::withMessages([
+                'amount' => ['Insufficient wallet balance.']
+            ]);
         }
 
         $wallet->save();
-        
+
         return WalletLog::create([
             'user_id' => $userId,
             'reference' => $reference,
