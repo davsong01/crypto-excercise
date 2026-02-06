@@ -127,6 +127,14 @@ php artisan test
 
 ---
 
+## API Documentation
+
+A Postman collection for the API is included at the project root: [Crypto.postman_collection.json](Crypto.postman_collection.json). Import this file into Postman.
+
+For full endpoint details, required headers, and request/response examples, see the API reference: [docs/API.md](docs/API.md).
+
+---
+
 ## 7. Approximate Time Spent
 
 * Total estimated time: ~12-15 hours
