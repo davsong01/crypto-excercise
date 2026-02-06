@@ -15,4 +15,11 @@ Route::prefix('auth')->group(function () {
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('profile', [AuthController::class, 'profile']);
     Route::get('transactions', [TransactionController::class, 'transactions']);
+
+    Route::prefix('trade')->group(function () {
+        Route::get('/currencies/{id?}', [TransactionController::class, 'currencies']);
+        Route::post('/buy', [TransactionController::class, 'buy']);
+        Route::post('/sell', [TransactionController::class, 'sell']);
+    });
 });
+

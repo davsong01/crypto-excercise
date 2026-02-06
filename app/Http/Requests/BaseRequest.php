@@ -14,7 +14,7 @@ class BaseRequest extends FormRequest
         throw new ValidationException($validator, HttpResponseService::error(
             'Validation failed',
             $validator->errors(),
-            '',
+            'general',
             422
         ));
     }

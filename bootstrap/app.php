@@ -47,6 +47,15 @@ return Application::configure(basePath: dirname(__DIR__))
                 401
             );
         });
+        
+        $exceptions->renderable(function (\Illuminate\Validation\ValidationException $e, $request) {
+            return HttpResponseService::error(
+                'Validation failed',
+                $e->errors(),
+                'validation',
+                422
+            );
+        });
 
         $exceptions->renderable(function (\Illuminate\Validation\ValidationException $e, $request) {
             return null;

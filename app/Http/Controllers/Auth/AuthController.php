@@ -87,7 +87,7 @@ class AuthController extends Controller
 
     public function profile(Request $request)
     {
-        $user = auth()->user()->load('wallet:balance','cryptoHoldings.tradeCurrency');
+        $user = auth()->user()->load('wallet:user_id,balance','cryptoHoldings.tradeCurrency');
 
         return HttpResponseService::success('User profile fetched successfully', [
             'user' => [

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Models\Wallet;
 use App\Models\Transaction;
 use App\Models\CryptoHolding;
 use Laravel\Sanctum\HasApiTokens;
