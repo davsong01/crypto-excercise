@@ -23,12 +23,11 @@ cp .env.example .env
 ```
 
 * Set database credentials
-* Set CoinGecko API base URL if needed
 
-4. **Run migrations and seeders**:
+4. **Run migrations**:
 
 ```
-php artisan migrate --seed
+php artisan migrate
 ```
 
 5. **Start the application**:
