@@ -11,9 +11,9 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->enum('type', ['credit', 'debit']);
-            $table->decimal('amount', 14, 2);
-            $table->decimal('initial_balance', 14, 2);
-            $table->decimal('final_balance', 14, 2);
+            $table->decimal('amount', 14, 8);
+            $table->decimal('initial_balance', 14, 8);
+            $table->decimal('final_balance', 14, 8);
             $table->string('reference')->nullable();
             $table->string('source')->nullable();
             $table->string('duplicate_check')->nullable()->unique();

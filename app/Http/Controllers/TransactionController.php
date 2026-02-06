@@ -55,14 +55,19 @@ class TransactionController extends Controller{
     {
         $user = $request->user();
         $userId = $user->id;
-
         $currency = TradeCurrency::findOrFail($request->currency_id);
-
         $cryptoAmount = (float) $request->amount;
 
-        // Get rate (NGN per 1 crypto)
-        $nairaRate = $this->tradeService->getNairaRate($currency);
+        if ($cryptoAmount < $currency->min_trade_amount) {
+            return HttpResponseService::error(
+                'Transaction failed',
+                ["message" => "Minimum transaction amount for {$currency->name} is {$currency->min_trade_amount} {$currency->symbol}"],
+                'general',
+                422
+            );
+        }
 
+        $nairaRate = $this->tradeService->getNairaRate($currency);
         if (!$nairaRate) {
             return HttpResponseService::error(
                 'Transaction failed',
@@ -72,100 +77,50 @@ class TransactionController extends Controller{
             );
         }
 
-        if ($cryptoAmount < $currency->min_trade_amount) {
-            return HttpResponseService::error(
-                'Transaction failed',
-                [
-                    'message' => "Minimum transaction amount for {$currency->name} is {$currency->min_trade_amount} {$currency->symbol}"
-                ],
-                'general',
-                422
-            );
-        }
-
         $nairaAmount = round($cryptoAmount * $nairaRate, 2);
-
         $feeAmount = $this->transactionService->getFeeAmount($currency, $nairaAmount);
 
-        // Wallet check
-        $walletBalance = $this->walletService->walletBalance($userId);
+        $buyResponse = $this->tradeService->buyCrypto([
+            'user_id' => $userId,
+            'currency' => $currency,
+            'cryptoAmount' => $cryptoAmount,
+            'nairaAmount' => $nairaAmount,
+            'feeAmount' => $feeAmount,
+            'conversionRate' => $nairaRate,
+        ]);
 
-        if ($walletBalance < ($nairaAmount + $feeAmount)) {
-            return HttpResponseService::error(
-                'Transaction failed',
-                ['message' => 'Insufficient wallet balance, please fund your Naira wallet.'],
-                'general',
-                400
+        if ($buyResponse['status']) {
+            return HttpResponseService::success(
+                'Crypto purchased successfully',
+                new TransactionResource($buyResponse['transaction'])
             );
         }
 
-        try {
-            DB::beginTransaction();
-
-            $buyResponse = $this->tradeService->buyCrypto([
-                'user_id'        => $userId,
-                'currency'       => $currency,
-                'conversionRate' => $nairaRate,
-                'cryptoAmount'   => $cryptoAmount,
-                'nairaAmount'    => $nairaAmount,
-                'feeAmount'      => $feeAmount,
-            ]);
-
-            if($buyResponse['status'] && $buyResponse['transaction']){
-                $buyResponse['transaction']->update([
-                    'status'=>'completed',
-                ]);
-
-                DB::commit();
-
-                return HttpResponseService::success(
-                    'Crypto purchased successfully',
-                    new TransactionResource($buyResponse['transaction'])
-                );
-
-            }else{
-                DB::rollBack();
-
-                return HttpResponseService::error(
-                    'Transaction failed',
-                    ['message' => $buyResponse['message'] ?? 'Something went wrong'],
-                    'general',
-                    400
-                );
-            }
-
-        } catch (\RuntimeException $e) {
-            DB::rollBack();
-
-            return HttpResponseService::error(
-                'Transaction failed',
-                ['message' => $e->getMessage()],
-                'general',
-                400
-            );
-        } catch (\Exception $e) {
-            DB::rollBack();
-
-            return HttpResponseService::fatalError(
-                'Unexpected error occurred',
-                ['exception' => $e->getMessage()]
-            );
-        }
+        return HttpResponseService::error(
+            'Transaction failed',
+            ['message' => $buyResponse['message'] ?? 'Something went wrong'],
+            'general',
+            400
+        );
     }
 
     public function sell(TradeRequest $request)
     {
         $user = $request->user();
         $userId = $user->id;
-
         $currency = TradeCurrency::findOrFail($request->currency_id);
-        $cryptoAmount = (float) $request->amount; // User enters crypto to sell
+        $cryptoAmount = (float) $request->amount; // user enters crypto to sell
 
-        // Get current rate (NGN per 1 crypto)
+        if ($cryptoAmount < $currency->min_trade_amount) {
+            return HttpResponseService::error(
+                'Transaction failed',
+                ["message" => "Minimum transaction amount for {$currency->name} is {$currency->min_trade_amount} {$currency->symbol}"],
+                'general',
+                422
+            );
+        }
+
         $nairaRate = $this->tradeService->getNairaRate($currency);
-        $nairaAmount = round($cryptoAmount * $nairaRate, 2);
-        $feeAmount = $this->transactionService->getFeeAmount($currency, $nairaAmount);
-
         if (!$nairaRate) {
             return HttpResponseService::error(
                 'Transaction failed',
@@ -175,75 +130,30 @@ class TransactionController extends Controller{
             );
         }
 
-        // Validate min trade (crypto domain)
-        if ($cryptoAmount < $currency->min_trade_amount) {
-            return HttpResponseService::error(
-                'Transaction failed',
-                [
-                    'message' => "Minimum transaction amount for {$currency->name} is {$currency->min_trade_amount} {$currency->symbol}"
-                ],
-                'general',
-                422
+        $nairaAmount = round($cryptoAmount * $nairaRate, 2);
+        $feeAmount = $this->transactionService->getFeeAmount($currency, $nairaAmount);
+
+        $sellResponse = $this->tradeService->sellCrypto([
+            'user_id' => $userId,
+            'currency' => $currency,
+            'cryptoAmount' => $cryptoAmount,
+            'nairaAmount' => $nairaAmount,
+            'feeAmount' => $feeAmount,
+            'conversionRate' => $nairaRate,
+        ]);
+
+        if ($sellResponse['status']) {
+            return HttpResponseService::success(
+                'Crypto sold successfully',
+                new TransactionResource($sellResponse['transaction'])
             );
         }
 
-        $holding = CryptoHolding::firstOrCreate(
-            ['user_id' => $userId, 'trade_currency_id' => $currency->id],
-            ['balance' => 0]
+        return HttpResponseService::error(
+            'Transaction failed',
+            ['message' => $sellResponse['message'] ?? 'Something went wrong'],
+            'general',
+            400
         );
-
-        if ($holding->balance < $cryptoAmount) {
-            return HttpResponseService::error(
-                'Transaction failed',
-                ['message' => 'Insufficient crypto balance to perform this sell.'],
-                'general',
-                400
-            );
-        }
-
-        try {
-            DB::beginTransaction();
-
-            $sellResponse = $this->tradeService->sellCrypto([
-                'user_id'       => $userId,
-                'currency'      => $currency,
-                'cryptoAmount'  => $cryptoAmount,
-                'nairaAmount'   => $nairaAmount,
-                'feeAmount'     => $feeAmount,
-                'conversionRate'=> $nairaRate,
-            ]);
-
-            if ($sellResponse['status'] && $sellResponse['transaction']) {
-                $sellResponse['transaction']->update(['status' => 'completed']);
-                DB::commit();
-
-                return HttpResponseService::success(
-                    'Crypto sold successfully',
-                    new TransactionResource($sellResponse['transaction'])
-                );
-            } else {
-                DB::rollBack();
-                return HttpResponseService::error(
-                    'Transaction failed',
-                    ['message' => $sellResponse['message'] ?? 'Something went wrong'],
-                    'general',
-                    400
-                );
-            }
-
-        } catch (\RuntimeException $e) {
-            DB::rollBack();
-            return HttpResponseService::fatalError(
-                'Unexpected error occurred',
-                ['exception' => $e->getMessage()]
-            );
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return HttpResponseService::fatalError(
-                'Unexpected error occurred',
-                ['exception' => $e->getMessage()]
-            );
-        }
     }
 }

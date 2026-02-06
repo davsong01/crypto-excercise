@@ -97,7 +97,7 @@ class AuthController extends Controller
                 'created_at' => $user->created_at,
                 'updated_at' => $user->updated_at,
                 'wallet'     => [
-                    'balance' => $user->wallet?->balance ?? 0,
+                    'balance' => (float) $user->wallet?->balance ?? 0,
                 ],
                 'crypto_holdings' => $user->cryptoHoldings->map(function ($holding) {
                     return [

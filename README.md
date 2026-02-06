@@ -1,59 +1,122 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Crypto Trading Platform
+A Laravel-based cryptocurrency trading platform with integrated wallet management, transaction tracking, and real-time price feeds via CoinGecko API.
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+## 1. Setup & Run
 
-## About Laravel
+1. **Clone the repository**:
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+```
+git clone <repo-url>
+cd <repo-folder>
+```
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+2. **Install dependencies**:
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+```
+composer install
+```
 
-## Learning Laravel
+3. **Configure environment variables**:
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+```
+cp .env.example .env
+```
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+* Set database credentials
+* Set CoinGecko API base URL if needed
 
-## Laravel Sponsors
+4. **Run migrations and seeders**:
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+```
+php artisan migrate --seed
+```
 
-### Premium Partners
+5. **Start the application**:
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+```
+php artisan serve
+```
 
-## Contributing
+6. **Run tests (optional)**:
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```
+php artisan test
+```
 
-## Code of Conduct
+---
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## 2. Design Decisions & Architecture Choices
 
-## Security Vulnerabilities
+* **Service-Based Architecture**: Business logic is separated into services (`TradeService`, `TransactionService`, `WalletService`) rather than controllers, making the code reusable, testable, and easier to maintain.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+* **Transaction Lifecycle**:
 
-## License
+  1. Create a transaction record with status `initiated`.
+  2. Update user's crypto holdings (for buys) or reduce holdings (for sells).
+  3. Log wallet debit/credit only after transaction succeeds.
+  4. Mark transaction as `completed`.
+     Ensures traceability even if failures occur mid-process.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+* **Separation of Wallet and Crypto Holdings**:
+
+  * Wallet: Tracks Naira balances, handles all debit/credit operations.
+  * Crypto Holdings: Tracks BTC, ETH, USDT per user.
+
+* **API Consistency**: `TransactionResource` formats transaction data consistently for all responses.
+
+* **Error Handling & Reliability**: Transactions are created first, then wallet logs are applied only if the transaction succeeds, ensuring audit trail.
+
+---
+
+## 3. Fee Handling (Percentage & Calculation Approach)
+
+* Fees are applied on both buy and sell transactions.
+* Buy: Fee is **added** to the Naira amount the user pays.
+* Sell: Fee is **deducted** from the Naira proceeds credited to the user's wallet.
+* Stored in transaction record: `fee`, `fee_rate`, `fee_rate_type` for historical consistency.
+
+**Example Calculations**:
+
+```
+Buy Total (Naira) = CryptoPrice * CryptoAmount + Fee
+Sell Proceeds (Naira) = CryptoPrice * CryptoAmount - Fee
+```
+
+---
+
+## 4. CoinGecko API Integration
+
+* Rates are fetched from CoinGecko API using `/simple/price` endpoint.
+* Used to calculate current Naira value per 1 crypto.
+* Abstracted in `TradeService::getNairaRate()` for consistency and test mocking.
+
+---
+
+## 5. Trade-offs / Constraints
+
+* No external payment provider: Wallet is internal; deposits/withdrawals are mocked.
+* Simplified error handling: Transaction created before wallet logs.
+* Fee on sell: Deducted from proceeds instead of debiting another wallet.
+* Limited cryptocurrencies: BTC, ETH, USDT only.
+
+---
+
+## 6. Running Tests
+
+* Tests cover buy/sell, wallet, transaction logging.
+* CoinGecko API responses are mocked.
+
+```
+php artisan test
+```
+
+---
+
+## 7. Approximate Time Spent
+
+* Total estimated time: ~12-15 hours
+
+  * Setup & database modeling: 2-3 hours
+  * Services and controllers: 6-7 hours
+  * Transaction, fee, and wallet logic: 3-4 hours
+  * Testing and API formatting: 1 hour
