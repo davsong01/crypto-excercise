@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Exception;
+use App\Models\Currency;
 use App\Models\Transaction;
 use Illuminate\Support\Str;
 use App\DTOs\TransactionDto;
@@ -52,22 +53,22 @@ class TransactionService
                      ->paginate($perPage);
     }
 
-    public function logTransaction(int $userId, string $type, float $amount, $status='initiated', ?string $currencyId = null): Transaction
+    public function getFeeAmount(TradeCurrency $currency, Float $amount): Float
+    {
+        return $currency->fee_type === 'percentage' ? ($amount * $currency->fee / 100) : $currency->fee;
+    }
+
+    public function logTransaction(int $userId, string $type, float $amount, $status='initiated', ?TradeCurrency $currency = null): Transaction
     {
         $reference = now()->format('YmdHis') . rand(1000, 9999);
         $duplicateCheck = $userId . '|' . $type . '|' . $amount . '|' . ($currencyId ?? '') . '|' . $reference;
 
         $feeAmount = 0;
         $totalAmount = $amount;
-        $tradeCurrencyId = null;
+        $tradeCurrencyId = $currency->id ?? null;
 
         if (in_array($type, ['buy', 'sell'])) {
-            $currency = TradeCurrency::where('id', $currencyId)->firstOrFail();
-
-            $feeAmount = $currency->fee_type === 'percentage'
-                ? ($amount * $currency->fee / 100)
-                : $currency->fee;
-
+            $feeAmount = $this->getFeeAmount($currency, $amount);
             $totalAmount = $type === 'buy' ? $amount + $feeAmount : $amount - $feeAmount;
             $tradeCurrencyId = $currency->id;
 

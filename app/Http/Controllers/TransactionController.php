@@ -36,9 +36,9 @@ class TransactionController extends Controller{
     }
 
 
-    public function transactions(Request $request, TransactionService $transactionService)
+    public function transactions(Request $request)
     {
-        $transactions = $transactionService->transactionHistory($request->only([
+        $transactions = $this->transactionService->transactionHistory($request->only([
             'type', 'currency_id', 'status', 'from', 'to', 'per_page'
         ]));
 
@@ -47,19 +47,33 @@ class TransactionController extends Controller{
 
     public function buy(TradeRequest $request)
     {
-        dd('sdsd');
         $userId = $request->user()->id;
         $currencyId = $request->currency_id;
         $amount = (float) $request->amount;
+
+        $currency = TradeCurrency::where('id', $currencyId)->firstOrFail();
+        $feeAmount = $this->transactionService->getFeeAmount($currency, $amount);
+
+        $walletBalance = $this->walletService->walletBalance($userId);
+        // We need to get rates from api and convert to naira now
+        if($walletBalance < $amount + $feeAmount){
+            return HttpResponseService::error('Transaction failed', ['message' => 'Insufficient wallet balance, please load naira wallet'], 400);
+        }
+
+        if($amount < $currency->min_trading_amount){
+            return HttpResponseService::error('Transaction failed', ['message' => "You cannot transaction with less than {$currency->min_trading_amount} on this service"], 400);
+        }
 
         try {
             $transaction = $this->transactionService->logTransaction(
                 userId: $userId,
                 type: 'buy',
                 amount: $amount,
-                currencyId: $currencyId,
-                status: 'completed'
+                currency: $currency,
+                status: 'initiated'
             );
+
+            // we need to now add the amount to the holding
 
             return HttpResponseService::success('Crypto purchased successfully', $transaction);
 
