@@ -202,7 +202,7 @@ Success Response (200):
 
 Failure cases:
 - 422 if conversion rate unavailable or amount below minimum.
-- 400 if trade service returns an error.
+- 422 if trade service returns an error.
 
 ### Sell crypto
 
@@ -224,7 +224,7 @@ Notes:
 Success Response (200): similar to the buy response with `type: "sell"` and the wallet log type `credit`.
 
 Failure cases:
-- 400 if insufficient crypto holdings (trade service returns status false).
+- 422 if insufficient crypto holdings (trade service returns status false).
 - 422 if min amount or conversion rate issues.
 
 ## Transaction History

@@ -175,7 +175,7 @@ class AuthAndTransactionTest extends TestCase
 
         $response = $this->actingAs($user)->postJson('/api/trade/buy', $payload);
 
-        $response->assertStatus(400)
-                 ->assertJson(['status' => false]);
+        $response->assertStatus(422)
+             ->assertJson(['status' => false]);
     }
 }

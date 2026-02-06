@@ -100,7 +100,7 @@ class TransactionController extends Controller{
             'Transaction failed',
             ['message' => $buyResponse['message'] ?? 'Something went wrong'],
             'general',
-            400
+            422
         );
     }
 
